@@ -1,0 +1,18 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="24" fill="url(#grad)"/>
+  <!-- Test tube -->
+  <path d="M 50 30 L 50 75 Q 50 85 60 85 L 68 85 Q 78 85 78 75 L 78 30 Z" fill="white" opacity="0.9"/>
+  <rect x="48" y="28" width="32" height="6" rx="2" fill="white" opacity="0.9"/>
+  <!-- Liquid -->
+  <path d="M 52 60 L 52 73 Q 52 80 60 80 L 68 80 Q 76 80 76 73 L 76 60 Z" fill="#667eea" opacity="0.6"/>
+  <!-- Bubbles -->
+  <circle cx="60" cy="68" r="3" fill="white" opacity="0.7"/>
+  <circle cx="68" cy="65" r="2" fill="white" opacity="0.7"/>
+  <circle cx="64" cy="72" r="2.5" fill="white" opacity="0.7"/>
+</svg>
