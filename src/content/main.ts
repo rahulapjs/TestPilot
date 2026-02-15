@@ -25,8 +25,6 @@ let isMonitoring = false;
 function handleBridgeEvent(type: string, data: any) {
     if (!isMonitoring) return;
 
-    console.log(`[TestPilot] Bridge event received: ${type}`);
-
     let payload: any = {
         type,
         url: window.location.href,
