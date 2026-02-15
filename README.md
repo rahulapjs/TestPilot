@@ -1,268 +1,86 @@
-# 🧪 TestPilot - Production Bug Detection Extension
+# 🧪 TestPilot
 
-**Catch production bugs before users do.**
+**Intelligent Bug Detection & Telemetry Extension for Modern Web Apps**
 
-TestPilot is a production-quality QA observability Chrome extension that monitors web applications during manual testing sessions and automatically detects runtime crashes, console errors, network failures, slow APIs, and potential security risks.
+TestPilot is a powerful, production-grade Chrome extension designed to catch bugs before your users do. It acts as a black-box flight recorder for your web application, capturing console errors, network failures, slow APIs, performance metrics, and security risks in real-time.
 
----
+![TestPilot Banner](https://via.placeholder.com/800x200?text=TestPilot+Extension)
 
-## ✨ Features
+## ✨ Key Features
 
-### Session-Based Workflow
-- **Start/Stop Sessions**: Control monitoring with a simple UI
-- **Real-time Monitoring**: Silent background monitoring without disrupting testing
-- **Issue Detection**: Automatic categorization by severity (Critical, High, Medium, Low)
+- **🚀 Real-time Telemetry**: Captures `console.error`, `console.warn`, unhandled exceptions, and promise rejections.
+- **🌐 Network Intelligence**: 
+  - Detects **Slow APIs** (>1000ms by default)
+  - Identifies **Retry Storms** (rapid repeated failures)
+  - Captures **CORS Errors** and HTTP 4xx/5xx failures
+- **⚡ Performance Monitoring**:
+  - **Long Task Detection**: Flags UI freezes (>200ms)
+  - **White Screen Detection**: Alerts on potential rendering crashes
+- **🛡️ Security Scanner**:
+  - Detects sensitive data leaks (JWTs, API keys, PII) in console/storage
+  - Monitors unsafe storage access
+- **📱 Smart Context**: Captures environment details (User Agent, Viewport, Route Changes) for actionable bug reports.
+- **🧠 Adaptive Severity**: Automatically escalates issue severity based on frequency (e.g., repeating errors become Critical).
 
-### Comprehensive Monitoring
-- **Runtime Crashes**: `window.onerror`, unhandled promise rejections
-- **Console Errors**: `console.error`, `console.warn` with stack traces
-- **Network Failures**: Failed HTTP requests (4xx, 5xx)
-- **Slow APIs**: Requests exceeding 3000ms
-- **Security Risks**: Potential PII/secret leaks in console output
+## 🛠️ Usage
 
-### Professional Reporting
-- **Deduplication**: Intelligent fingerprinting prevents duplicate issues
-- **Structured Reports**: Export to JSON or Markdown
-- **Timeline View**: Chronological issue tracking
-- **QA-Ready**: Professional formatting for bug reports
+1. **Install the Extension** (Developer Mode):
+   - Clone this repo
+   - Run `npm install` and `npm run build`
+   - Open `chrome://extensions`
+   - Enable "Developer mode"
+   - Click "Load unpacked" and select the `dist` folder
 
----
+2. **Start a Session**:
+   - Click the extension icon
+   - Hit **Start Session**
+   - Interact with your web application
+   - TestPilot records all hidden issues in the background
+
+3. **Analyze & Export**:
+   - Open the popup to see a categorized list of issues
+   - Use **Filters** to focus on Critical/High severity bugs
+   - Click **Export JSON** or **Export Markdown** to generate a bug report
+
+## ⚙️ Configuration
+
+TestPilot includes a **Settings Panel** (click the ⚙ icon) to customize detection thresholds:
+
+| Setting | Default | Description |
+|Observed Metric| Threshold | Impact |
+|---|---|---|
+| **Slow API** | 1000ms | Requests taking longer than this are flagged as "Medium" severity |
+| **Long Task** | 200ms | UI freezes longer than this are flagged as "Medium" severity |
+| **Escalation** | 10x | Issues repeating this many times automatically upgrade severity |
 
 ## 🏗️ Architecture
 
-### Manifest V3 Compliant
-Built with modern Chrome Extension standards.
+- **Core**: TypeScript, Vite, Preact
+- **State Management**: Chronicled session storage in `chrome.storage.local`
+- **Bridge**: Injected script (`bridge.ts`) for deep network/console interception
+- **Analysis**: Independent `SeverityEngine` for classifying and prioritizing issues
 
-### Modular Design
-
-```
-src/
-├── background/          # Service Worker (Event Processing Engine)
-│   ├── main.ts         # Entry point
-│   ├── eventProcessor.ts   # Telemetry processing & deduplication
-│   ├── sessionManager.ts   # Session lifecycle
-│   ├── severityEngine.ts   # Issue classification
-│   └── storage.ts      # chrome.storage wrapper
-│
-├── content/            # Injected Monitors
-│   ├── main.ts         # Orchestrator
-│   ├── consoleMonitor.ts   # Console override
-│   ├── runtimeMonitor.ts   # Error/rejection listeners
-│   ├── networkMonitor.ts   # Fetch/XHR proxy
-│   └── securityScanner.ts  # PII detection
-│
-├── popup/              # Extension UI
-│   ├── popup.tsx       # Preact app
-│   ├── popup.css       # Styling
-│   └── index.html      # Entry point
-│
-├── core/               # Shared Logic
-│   ├── types.ts        # TypeScript interfaces
-│   ├── fingerprint.ts  # Deduplication hashing
-│   └── issueFactory.ts # Issue creation
-│
-└── reporting/          # Export
-    └── reportGenerator.ts  # Markdown/JSON export
-```
-
----
-
-## 🚀 Installation & Usage
-
-### Build from Source
+## 📦 Build & Develop
 
 ```bash
 # Install dependencies
 npm install
 
-# Build extension
+# Run development build (watch mode)
+npm run dev
+
+# Build for production
 npm run build
 ```
 
-### Load in Chrome
+## 🤝 Contributing
 
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable **Developer mode** (toggle in top right)
-3. Click **Load unpacked**
-4. Select the `dist` folder from this project
-5. TestPilot icon should appear in your extensions toolbar
-
-### Using TestPilot
-
-1. **Start a Session**
-   - Click the TestPilot icon
-   - Click "Start Session"
-   - Navigate to your web application
-
-2. **Perform Testing**
-   - Use your application normally
-   - TestPilot monitors silently in the background
-   - Badge shows issue count
-
-3. **End Session**
-   - Click TestPilot icon
-   - Click "End Session"
-   - View summary and export reports
-
----
-
-## 📊 Issue Types & Severity
-
-### Critical 🔴
-- Runtime crashes (`window.onerror`)
-- Unhandled promise rejections
-- HTTP 5xx errors
-
-### High 🟠
-- `console.error` calls
-- HTTP 4xx errors
-- Security risks (PII leaks)
-
-### Medium 🟡
-- `console.warn` calls
-- Slow API requests (>3s)
-
-### Low ⚪
-- Informational logs
-
----
-
-## 🛠️ Tech Stack
-
-- **Language**: TypeScript (strict mode)
-- **UI Framework**: Preact
-- **Build Tool**: Vite
-- **Storage**: chrome.storage.local
-- **Architecture**: Event-driven, modular
-
----
-
-## 📦 Data Schema
-
-### Issue Model
-```typescript
-interface Issue {
-  id: string;
-  fingerprint: string;  // For deduplication
-  sessionId: string;
-  type: IssueType;
-  level: IssueLevel;
-  message: string;
-  file?: string;
-  line?: number;
-  column?: number;
-  stackTrace?: string;
-  url: string;
-  metadata?: Record<string, any>;
-  occurrences: number;
-  firstSeen: number;
-  lastSeen: number;
-}
-```
-
-### Session Model
-```typescript
-interface Session {
-  sessionId: string;
-  startTime: number;
-  endTime?: number;
-  issues: Issue[];
-}
-```
-
----
-
-## 🔒 Privacy & Permissions
-
-### Required Permissions
-- `storage`: Local session data storage
-- `activeTab`: Inject monitoring scripts
-- `scripting`: Content script injection
-- `<all_urls>`: Monitor any website
-
-### Data Storage
-- All data stored **locally** in browser
-- No backend, no cloud sync
-- No data leaves your machine
-
----
-
-## 🎯 Future Enhancements
-
-The architecture is designed to support:
-- AI-powered issue analysis
-- Backend integration for team collaboration
-- CI/CD pipeline integration
-- Advanced filtering and search
-- Custom severity rules
-
----
-
-## 📝 Export Formats
-
-### JSON
-Structured data for programmatic processing:
-```json
-{
-  "sessionId": "...",
-  "startTime": 1234567890,
-  "endTime": 1234567900,
-  "issues": [...]
-}
-```
-
-### Markdown
-QA-ready reports with:
-- Executive summary
-- Release blockers
-- Issue categorization
-- Timeline view
-- Stack traces
-
----
-
-## 🧪 Development
-
-### Project Structure
-- `src/` - Source code
-- `dist/` - Build output (load this in Chrome)
-- `public/` - Static assets
-- `manifest.json` - Extension manifest
-
-### Build Commands
-```bash
-npm run dev     # Development server (for popup UI testing)
-npm run build   # Production build
-```
-
-### TypeScript Configuration
-- Strict mode enabled
-- `verbatimModuleSyntax` for clean imports
-- Chrome types via `@types/chrome`
-
----
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📄 License
 
-This is a demonstration project showcasing production-quality Chrome extension development.
-
----
-
-## 🤝 Contributing
-
-This project follows professional coding standards:
-- Modular architecture
-- Strong typing
-- Event-driven design
-- Separation of concerns
-- Extensible patterns
-
----
-
-## 📞 Support
-
-For issues or questions, please refer to the code documentation and inline comments.
-
----
-
-**Built with ❤️ for QA engineers and developers who care about quality.**
+MIT License - free to use for personal and commercial projects.

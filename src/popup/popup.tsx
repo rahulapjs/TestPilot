@@ -148,15 +148,55 @@ function App() {
     const sortedSessions = Object.values(allSessions).sort((a, b) => b.startTime - a.startTime);
 
     const IssueList = ({ issues }: { issues: any[] }) => {
+        const [filter, setFilter] = useState<string>('all');
+
         if (issues.length === 0) {
             return <p class="no-issues">No issues detected yet.</p>;
         }
 
+        const filteredIssues = filter === 'all'
+            ? issues
+            : issues.filter(i => i.level === filter);
+
         return (
             <div class="issue-list-container">
-                <h3 class="section-subtitle">Recent Issues</h3>
+                <div class="issue-list-header">
+                    <h3 class="section-subtitle">Recent Issues</h3>
+                    <div class="filter-container">
+                        <button
+                            class={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+                            onClick={() => setFilter('all')}
+                        >
+                            All
+                        </button>
+                        <button
+                            class={`filter-btn ${filter === 'critical' ? 'active' : ''}`}
+                            onClick={() => setFilter('critical')}
+                        >
+                            Critical
+                        </button>
+                        <button
+                            class={`filter-btn ${filter === 'high' ? 'active' : ''}`}
+                            onClick={() => setFilter('high')}
+                        >
+                            High
+                        </button>
+                        <button
+                            class={`filter-btn ${filter === 'medium' ? 'active' : ''}`}
+                            onClick={() => setFilter('medium')}
+                        >
+                            Medium
+                        </button>
+                        <button
+                            class={`filter-btn ${filter === 'low' ? 'active' : ''}`}
+                            onClick={() => setFilter('low')}
+                        >
+                            Low
+                        </button>
+                    </div>
+                </div>
                 <div class="issue-list">
-                    {issues.slice().reverse().map((issue, idx) => (
+                    {filteredIssues.slice().reverse().map((issue, idx) => (
                         <div key={issue.id || idx} class={`issue-item ${issue.level}`}>
                             <div class="issue-item-header">
                                 <span class="issue-type">{issue.type.replace('_', ' ')}</span>
@@ -177,16 +217,16 @@ function App() {
         <div class="container">
             <header class="header">
                 <div>
-                    <h1 class="title">🧪 TestPilot</h1>
-                    <p class="subtitle">Catch bugs before users do</p>
+                    <h1 class="title">TestPilot</h1>
+                    <p class="subtitle">Intelligent bug detection</p>
                 </div>
                 {!isActive && (
                     <div class="header-actions">
                         <button class="btn-icon" onClick={() => { setShowSettings(!showSettings); setShowHistory(false); }} title="Settings">
-                            {showSettings ? '✕' : '⚙️'}
+                            {showSettings ? '×' : '⚙'}
                         </button>
                         <button class="btn-icon" onClick={() => { setShowHistory(!showHistory); setShowSettings(false); }} title="History">
-                            {showHistory ? '✕' : '🕒'}
+                            {showHistory ? '×' : '◷'}
                         </button>
                     </div>
                 )}
@@ -289,25 +329,25 @@ function App() {
                                 <div class="issue-counts">
                                     {counts.critical > 0 && (
                                         <div class="issue-count critical">
-                                            <span class="count-badge">🔴 {counts.critical}</span>
+                                            <span class="count-badge">{counts.critical}</span>
                                             <span class="count-label">Critical</span>
                                         </div>
                                     )}
                                     {counts.high > 0 && (
                                         <div class="issue-count high">
-                                            <span class="count-badge">🟠 {counts.high}</span>
+                                            <span class="count-badge">{counts.high}</span>
                                             <span class="count-label">High</span>
                                         </div>
                                     )}
                                     {counts.medium > 0 && (
                                         <div class="issue-count medium">
-                                            <span class="count-badge">🟡 {counts.medium}</span>
+                                            <span class="count-badge">{counts.medium}</span>
                                             <span class="count-label">Medium</span>
                                         </div>
                                     )}
                                     {counts.low > 0 && (
                                         <div class="issue-count low">
-                                            <span class="count-badge">⚪ {counts.low}</span>
+                                            <span class="count-badge">{counts.low}</span>
                                             <span class="count-label">Low</span>
                                         </div>
                                     )}
@@ -341,25 +381,25 @@ function App() {
                                 <div class="issue-counts">
                                     {counts.critical > 0 && (
                                         <div class="issue-count critical">
-                                            <span class="count-badge">🔴 {counts.critical}</span>
+                                            <span class="count-badge">{counts.critical}</span>
                                             <span class="count-label">Critical</span>
                                         </div>
                                     )}
                                     {counts.high > 0 && (
                                         <div class="issue-count high">
-                                            <span class="count-badge">🟠 {counts.high}</span>
+                                            <span class="count-badge">{counts.high}</span>
                                             <span class="count-label">High</span>
                                         </div>
                                     )}
                                     {counts.medium > 0 && (
                                         <div class="issue-count medium">
-                                            <span class="count-badge">🟡 {counts.medium}</span>
+                                            <span class="count-badge">{counts.medium}</span>
                                             <span class="count-label">Medium</span>
                                         </div>
                                     )}
                                     {counts.low > 0 && (
                                         <div class="issue-count low">
-                                            <span class="count-badge">⚪ {counts.low}</span>
+                                            <span class="count-badge">{counts.low}</span>
                                             <span class="count-label">Low</span>
                                         </div>
                                     )}
