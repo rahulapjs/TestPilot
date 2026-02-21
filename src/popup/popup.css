@@ -455,22 +455,98 @@ body {
   padding-right: 4px;
 }
 
+/* ── Scrollbar Design System ─────────────────────────────── */
+
+/* Global fallback for any overflow container */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 99px;
+  border: 1px solid #e2e8f0;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #bfdbfe;
+  border-radius: 99px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Issue list — primary scroll area */
+.issue-list {
+  scrollbar-gutter: stable;
+}
+
 .issue-list::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 .issue-list::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 10px;
+  background: #eff6ff;
+  border-radius: 99px;
+  border: 1px solid #dbeafe;
 }
 
 .issue-list::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
+  background: #93c5fd;
+  border-radius: 99px;
+  transition: background 0.25s ease;
 }
 
 .issue-list::-webkit-scrollbar-thumb:hover {
+  background: #2563eb;
+}
+
+/* Issue body detail — compact scroll area */
+.issue-body-detail::-webkit-scrollbar {
+  width: 4px;
+}
+
+.issue-body-detail::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 99px;
+}
+
+.issue-body-detail::-webkit-scrollbar-thumb {
   background: #94a3b8;
+  border-radius: 99px;
+  transition: background 0.2s ease;
+}
+
+.issue-body-detail::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* History state — full-panel scroll area */
+.history-state::-webkit-scrollbar {
+  width: 5px;
+}
+
+.history-state::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 99px;
+  border: 1px solid #e2e8f0;
+}
+
+.history-state::-webkit-scrollbar-thumb {
+  background: #93c5fd;
+  border-radius: 99px;
+  transition: background 0.25s ease;
+}
+
+.history-state::-webkit-scrollbar-thumb:hover {
+  background: #2563eb;
 }
 
 .issue-item {
@@ -564,6 +640,111 @@ body {
   font-size: 9px;
   display: block;
   margin-bottom: 2px;
+}
+
+/* URL row */
+.issue-url {
+  margin-top: 4px;
+  margin-bottom: 4px;
+  color: #3b82f6 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  cursor: default;
+}
+
+/* File location */
+.issue-location {
+  margin-top: 4px;
+  color: #7c3aed !important;
+}
+
+/* Timestamp row */
+.issue-timestamps {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.issue-time-tag {
+  font-size: 9px;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  color: #94a3b8;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Detail chip grid (network method/status, security key, etc.) */
+.issue-detail-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+  margin-bottom: 4px;
+}
+
+.detail-chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail-chip.method {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.detail-chip.status {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.detail-chip.duration {
+  background: #fefce8;
+  color: #ca8a04;
+  border: 1px solid #fde68a;
+}
+
+.detail-chip.endpoint {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  max-width: 220px;
+}
+
+.detail-chip.key {
+  background: #fff7ed;
+  color: #ea580c;
+  border: 1px solid #fed7aa;
+}
+
+.detail-chip.detected {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.detail-chip.snippet {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* Stack trace block */
+.issue-stack {
+  color: #7c3aed;
 }
 
 .no-issues {

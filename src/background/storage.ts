@@ -5,6 +5,7 @@ import type { Session } from '../core/types.ts';
 const STORAGE_KEYS = {
     SESSIONS: 'sessions',
     CURRENT_SESSION_ID: 'currentSessionId',
+    CURRENT_TAB_ID: 'currentTabId',
 };
 
 export class StorageService {
@@ -26,6 +27,18 @@ export class StorageService {
             await chrome.storage.local.remove(STORAGE_KEYS.CURRENT_SESSION_ID);
         } else {
             await this.set(STORAGE_KEYS.CURRENT_SESSION_ID, id);
+        }
+    }
+
+    static async getCurrentTabId(): Promise<number | undefined> {
+        return this.get<number>(STORAGE_KEYS.CURRENT_TAB_ID);
+    }
+
+    static async setCurrentTabId(tabId: number | null): Promise<void> {
+        if (tabId === null) {
+            await chrome.storage.local.remove(STORAGE_KEYS.CURRENT_TAB_ID);
+        } else {
+            await this.set(STORAGE_KEYS.CURRENT_TAB_ID, tabId);
         }
     }
 

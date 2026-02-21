@@ -124,6 +124,16 @@ function handleBridgeEvent(type: string, data: any) {
         payload.type = 'resource_failure';
         payload.message = `Failed to load ${data.tagName}: ${data.url}`;
         payload.metadata = data;
+
+    } else if (type === 'security_risk') {
+        payload.type = 'security_risk';
+        // data from bridge: { type: 'storage_leak', key, value }
+        if (data.type === 'storage_leak') {
+            payload.message = `Sensitive key written to localStorage: "${data.key}"`;
+        } else {
+            payload.message = `Security risk detected in page context`;
+        }
+        payload.metadata = { ...data };
     }
 
     safeSendMessage({ action: 'TELEMETRY_EVENT', payload });
