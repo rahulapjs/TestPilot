@@ -16,8 +16,19 @@ function App() {
     const [showSettings, setShowSettings] = useState(false);
     const [config, setConfig] = useState({
         slowApiThreshold: 1000,
-        longTaskThreshold: 200,
-        escalationThreshold: 10
+        escalationThreshold: 10,
+        enabledTypes: {
+            runtime_crash: true,
+            console_error: true,
+            console_log: false,
+            network_failure: true,
+            slow_api: true,
+            retry_storm: true,
+            resource_failure: true,
+            cors_failure: true,
+            security_risk: true,
+            white_screen: true
+        }
     });
 
     useEffect(() => {
@@ -206,6 +217,16 @@ function App() {
                             {issue.metadata?.duration && (
                                 <div class="issue-meta">{issue.metadata.duration}ms • {issue.metadata.status || 'Error'}</div>
                             )}
+                            {issue.metadata?.requestPayload && (
+                                <div class="issue-body-detail">
+                                    <strong>Request Payload:</strong> {issue.metadata.requestPayload}
+                                </div>
+                            )}
+                            {issue.metadata?.responseBody && (
+                                <div class="issue-body-detail">
+                                    <strong>Response Body:</strong> {issue.metadata.responseBody}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -244,14 +265,7 @@ function App() {
                                 onChange={(e) => setConfig({ ...config, slowApiThreshold: parseInt((e.target as HTMLInputElement).value) })}
                             />
                         </div>
-                        <div class="setting-item">
-                            <label>Long Task Threshold (ms)</label>
-                            <input
-                                type="number"
-                                value={config.longTaskThreshold}
-                                onChange={(e) => setConfig({ ...config, longTaskThreshold: parseInt((e.target as HTMLInputElement).value) })}
-                            />
-                        </div>
+
                         <div class="setting-item">
                             <label>Escalation Threshold (counts)</label>
                             <input
@@ -259,6 +273,29 @@ function App() {
                                 value={config.escalationThreshold}
                                 onChange={(e) => setConfig({ ...config, escalationThreshold: parseInt((e.target as HTMLInputElement).value) })}
                             />
+                        </div>
+
+                        <div class="setting-item">
+                            <label>Monitor Types</label>
+                            <div class="monitor-types-grid">
+                                {Object.entries(config.enabledTypes).map(([type, enabled]) => (
+                                    <div key={type} class="monitor-type-item">
+                                        <input
+                                            type="checkbox"
+                                            id={`type-${type}`}
+                                            checked={enabled}
+                                            onChange={(e) => setConfig({
+                                                ...config,
+                                                enabledTypes: {
+                                                    ...config.enabledTypes,
+                                                    [type]: (e.target as HTMLInputElement).checked
+                                                }
+                                            })}
+                                        />
+                                        <label for={`type-${type}`}>{type.replace('_', ' ')}</label>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                     <button class="btn btn-primary" onClick={() => setShowSettings(false)}>Save & Close</button>

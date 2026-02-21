@@ -8,14 +8,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.action === 'TELEMETRY_EVENT') {
         EventProcessor.processEvent(message.payload);
     } else if (message.action === 'GET_SESSION_STATUS') {
-        SessionManager.isActive().then((active) => {
-            sendResponse({ active });
+        SessionManager.getCurrentSession().then((session) => {
+            sendResponse({ active: !!session, config: session?.config });
         });
         return true; // async
     } else if (message.action === 'START_SESSION') {
-        const { envData } = message.payload || {};
-        SessionManager.startSession(envData).then((session) => {
-            notifyTabs('SESSION_STARTED');
+        SessionManager.startSession(message.payload).then((session) => {
+            notifyTabs('SESSION_STARTED', { config: session.config });
             sendResponse({ session });
         });
         return true;

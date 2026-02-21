@@ -59,6 +59,7 @@
         const startTime = Date.now();
         let url = '';
         let method = 'GET';
+        let requestBody: any = null;
 
         try {
             if (typeof args[0] === 'string') {
@@ -70,19 +71,30 @@
                 method = args[0].method;
             }
 
-            if (args[1] && args[1].method) {
-                method = args[1].method;
+            if (args[1]) {
+                if (args[1].method) method = args[1].method;
+                if (args[1].body) requestBody = args[1].body;
             }
 
             const response = await originalFetch(...args);
             const duration = Date.now() - startTime;
 
             if (response.status >= 400 || duration > 1000) {
+                let responseBody = '';
+                try {
+                    const clone = response.clone();
+                    responseBody = await clone.text();
+                } catch (e) {
+                    responseBody = '[Unable to read body]';
+                }
+
                 emit('network_event', {
                     url,
                     method,
                     status: response.status,
-                    duration
+                    duration,
+                    requestPayload: requestBody ? (typeof requestBody === 'string' ? requestBody : '[Non-string body]') : null,
+                    responseBody: responseBody.substring(0, 2000)
                 });
             }
 
@@ -91,7 +103,8 @@
             emit('network_error', {
                 url,
                 method,
-                message: (error as Error).message
+                message: (error as Error).message,
+                requestPayload: requestBody ? (typeof requestBody === 'string' ? requestBody : '[Non-string body]') : null
             });
             throw error;
         }
@@ -102,6 +115,7 @@
         private _method?: string;
         private _url?: string;
         private _startTime?: number;
+        private _requestBody?: any;
 
         open(method: string, url: string | URL, ...args: any[]) {
             this._method = method;
@@ -111,6 +125,7 @@
         }
 
         send(body?: Document | XMLHttpRequestBodyInit | null) {
+            this._requestBody = body;
             this.addEventListener('load', () => {
                 const duration = Date.now() - (this._startTime || 0);
                 if (this.status >= 400 || duration > 1000) {
@@ -118,7 +133,9 @@
                         url: this._url,
                         method: this._method,
                         status: this.status,
-                        duration
+                        duration,
+                        requestPayload: this._requestBody ? (typeof this._requestBody === 'string' ? this._requestBody : '[Non-string body]') : null,
+                        responseBody: (this.responseText || '').substring(0, 2000)
                     });
                 }
             });
@@ -126,7 +143,8 @@
                 emit('network_error', {
                     url: this._url,
                     method: this._method,
-                    message: 'XHR Error'
+                    message: 'XHR Error',
+                    requestPayload: this._requestBody ? (typeof this._requestBody === 'string' ? this._requestBody : '[Non-string body]') : null
                 });
             });
             return super.send(body);
@@ -152,47 +170,9 @@
         });
     });
 
-    // SPA Route Change Tracking
-    const wrapHistory = (method: string) => {
-        const original = (history as any)[method];
-        return function (this: History, ...args: any[]) {
-            const result = original.apply(this, args);
-            emit('route_change', {
-                url: window.location.href,
-                method,
-                title: args[0]
-            });
-            return result;
-        };
-    };
-    history.pushState = wrapHistory('pushState');
-    history.replaceState = wrapHistory('replaceState');
-    window.addEventListener('popstate', () => {
-        emit('route_change', {
-            url: window.location.href,
-            method: 'popstate'
-        });
-    });
 
-    // Performance: Long Task Detection
-    if ('PerformanceObserver' in window) {
-        try {
-            const observer = new PerformanceObserver((list) => {
-                list.getEntries().forEach((entry) => {
-                    if (entry.duration > 200) { // Threshold: 200ms
-                        emit('long_task', {
-                            duration: entry.duration,
-                            name: entry.name,
-                            startTime: entry.startTime
-                        });
-                    }
-                });
-            });
-            observer.observe({ entryTypes: ['longtask'] });
-        } catch (e) {
-            console.warn('[TestPilot] PerformanceObserver not supported for longtask');
-        }
-    }
+
+
 
     // Broken Resource Detection
     window.addEventListener('error', (event) => {
@@ -220,6 +200,4 @@
         return originalSetItem.apply(this, [key, value]);
     };
 
-    const context = window.self === window.top ? 'Main Window' : 'IFrame';
-    console.log(`[TestPilot] Injected bridge active in ${context} with Advanced Monitoring`);
 })();
