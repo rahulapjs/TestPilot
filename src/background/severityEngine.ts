@@ -19,11 +19,9 @@ export class SeverityEngine {
                 return 'high';
 
             case 'slow_api':
-            case 'long_task':
                 return 'medium';
 
             case 'console_log':
-            case 'route_change':
                 return 'low';
 
             default:

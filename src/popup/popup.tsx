@@ -16,8 +16,19 @@ function App() {
     const [showSettings, setShowSettings] = useState(false);
     const [config, setConfig] = useState({
         slowApiThreshold: 1000,
-        longTaskThreshold: 200,
-        escalationThreshold: 10
+        escalationThreshold: 10,
+        enabledTypes: {
+            runtime_crash: true,
+            console_error: true,
+            console_log: false,
+            network_failure: true,
+            slow_api: true,
+            retry_storm: true,
+            resource_failure: true,
+            cors_failure: true,
+            security_risk: true,
+            white_screen: true
+        }
     });
 
     useEffect(() => {
@@ -49,19 +60,27 @@ function App() {
     };
 
     const handleStartSession = async () => {
+        // Find the active tab so we can pin monitoring to it specifically
+        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const tabId = activeTab?.id;
+
         const envData = {
             userAgent: navigator.userAgent,
             viewport: { width: window.innerWidth, height: window.innerHeight },
-            url: location.href,
+            url: activeTab?.url || location.href,
             platform: (navigator as any).platform || 'unknown'
         };
-        chrome.runtime.sendMessage({ action: 'START_SESSION', payload: { envData, config } }, (response) => {
-            if (response?.session) {
-                setCurrentSession(response.session);
-                setIsActive(true);
-                setShowSettings(false);
+
+        chrome.runtime.sendMessage(
+            { action: 'START_SESSION', payload: { envData, config, tabId } },
+            (response) => {
+                if (response?.session) {
+                    setCurrentSession(response.session);
+                    setIsActive(true);
+                    setShowSettings(false);
+                }
             }
-        });
+        );
     };
 
     const handleEndSession = async () => {
@@ -196,18 +215,99 @@ function App() {
                     </div>
                 </div>
                 <div class="issue-list">
-                    {filteredIssues.slice().reverse().map((issue, idx) => (
-                        <div key={issue.id || idx} class={`issue-item ${issue.level}`}>
-                            <div class="issue-item-header">
-                                <span class="issue-type">{issue.type.replace('_', ' ')}</span>
-                                <span class="issue-occ">x{issue.occurrences}</span>
+                    {filteredIssues.slice().reverse().map((issue, idx) => {
+                        const m = issue.metadata || {};
+                        const shortUrl = (issue.url || '').replace(/^https?:\/\//, '').substring(0, 50);
+                        const firstSeen = issue.firstSeen ? new Date(issue.firstSeen).toLocaleTimeString() : null;
+                        const lastSeen = issue.lastSeen && issue.occurrences > 1 ? new Date(issue.lastSeen).toLocaleTimeString() : null;
+
+                        return (
+                            <div key={issue.id || idx} class={`issue-item ${issue.level}`}>
+                                {/* Header: type badge + occurrence count */}
+                                <div class="issue-item-header">
+                                    <span class="issue-type">{issue.type.replace(/_/g, ' ')}</span>
+                                    <span class="issue-occ">×{issue.occurrences}</span>
+                                </div>
+
+                                {/* Primary message */}
+                                {issue.message && (
+                                    <div class="issue-msg">{issue.message}</div>
+                                )}
+
+                                {/* Page URL where it happened */}
+                                {shortUrl && (
+                                    <div class="issue-meta issue-url" title={issue.url}>🔗 {shortUrl}</div>
+                                )}
+
+                                {/* Timestamps */}
+                                <div class="issue-timestamps">
+                                    {firstSeen && <span class="issue-time-tag">First: {firstSeen}</span>}
+                                    {lastSeen && <span class="issue-time-tag">Last: {lastSeen}</span>}
+                                </div>
+
+                                {/* ── Network: method, status, duration, endpoint ── */}
+                                {(issue.type === 'network_failure' || issue.type === 'slow_api' || issue.type === 'cors_failure' || issue.type === 'retry_storm') && (
+                                    <div class="issue-detail-grid">
+                                        {m.method && <span class="detail-chip method">{m.method}</span>}
+                                        {m.status && <span class="detail-chip status">{m.status}</span>}
+                                        {m.duration && <span class="detail-chip duration">{m.duration}ms</span>}
+                                        {m.endpoint && (
+                                            <span class="detail-chip endpoint" title={m.endpoint}>
+                                                {m.endpoint.replace(/^https?:\/\/[^/]+/, '').substring(0, 40) || m.endpoint.substring(0, 40)}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* ── Runtime crash: file, line, col ── */}
+                                {(issue.type === 'runtime_crash') && (issue.file || issue.line) && (
+                                    <div class="issue-meta issue-location">
+                                        📄 {issue.file && issue.file.split('/').pop()}{issue.line ? `:${issue.line}` : ''}{issue.column ? `:${issue.column}` : ''}
+                                    </div>
+                                )}
+
+                                {/* ── Security risk: key and storage value ── */}
+                                {issue.type === 'security_risk' && (
+                                    <div class="issue-detail-grid">
+                                        {m.key && <span class="detail-chip key">key: {m.key}</span>}
+                                        {m.detectedTypes && <span class="detail-chip detected">{(m.detectedTypes as string[]).join(', ')}</span>}
+                                        {m.snippet && <span class="detail-chip snippet" title={m.snippet}>{m.snippet.substring(0, 30)}…</span>}
+                                    </div>
+                                )}
+
+                                {/* ── Resource failure: tag + src ── */}
+                                {issue.type === 'resource_failure' && m.url && (
+                                    <div class="issue-meta">
+                                        🏷 &lt;{(m.tagName || '').toLowerCase()}&gt; {String(m.url).split('/').pop()}
+                                    </div>
+                                )}
+
+                                {/* ── Request payload ── */}
+                                {m.requestPayload && (
+                                    <div class="issue-body-detail">
+                                        <strong>Request Payload:</strong>
+                                        {String(m.requestPayload).substring(0, 300)}
+                                    </div>
+                                )}
+
+                                {/* ── Response body ── */}
+                                {m.responseBody && (
+                                    <div class="issue-body-detail">
+                                        <strong>Response Body:</strong>
+                                        {String(m.responseBody).substring(0, 300)}
+                                    </div>
+                                )}
+
+                                {/* ── Stack trace (first 3 meaningful lines) ── */}
+                                {issue.stackTrace && (
+                                    <div class="issue-body-detail issue-stack">
+                                        <strong>Stack:</strong>
+                                        {issue.stackTrace.split('\n').filter((l: string) => l.trim()).slice(0, 3).join('\n')}
+                                    </div>
+                                )}
                             </div>
-                            <div class="issue-msg">{issue.message}</div>
-                            {issue.metadata?.duration && (
-                                <div class="issue-meta">{issue.metadata.duration}ms • {issue.metadata.status || 'Error'}</div>
-                            )}
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         );
@@ -244,14 +344,7 @@ function App() {
                                 onChange={(e) => setConfig({ ...config, slowApiThreshold: parseInt((e.target as HTMLInputElement).value) })}
                             />
                         </div>
-                        <div class="setting-item">
-                            <label>Long Task Threshold (ms)</label>
-                            <input
-                                type="number"
-                                value={config.longTaskThreshold}
-                                onChange={(e) => setConfig({ ...config, longTaskThreshold: parseInt((e.target as HTMLInputElement).value) })}
-                            />
-                        </div>
+
                         <div class="setting-item">
                             <label>Escalation Threshold (counts)</label>
                             <input
@@ -259,6 +352,29 @@ function App() {
                                 value={config.escalationThreshold}
                                 onChange={(e) => setConfig({ ...config, escalationThreshold: parseInt((e.target as HTMLInputElement).value) })}
                             />
+                        </div>
+
+                        <div class="setting-item">
+                            <label>Monitor Types</label>
+                            <div class="monitor-types-grid">
+                                {Object.entries(config.enabledTypes).map(([type, enabled]) => (
+                                    <div key={type} class="monitor-type-item">
+                                        <input
+                                            type="checkbox"
+                                            id={`type-${type}`}
+                                            checked={enabled}
+                                            onChange={(e) => setConfig({
+                                                ...config,
+                                                enabledTypes: {
+                                                    ...config.enabledTypes,
+                                                    [type]: (e.target as HTMLInputElement).checked
+                                                }
+                                            })}
+                                        />
+                                        <label for={`type-${type}`}>{type.replace('_', ' ')}</label>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                     <button class="btn btn-primary" onClick={() => setShowSettings(false)}>Save & Close</button>

@@ -4,6 +4,29 @@
 
 // Content Script Loaded
 
+// Helper to safely send messages to background
+function safeSendMessage(message: any, callback?: (response: any) => void) {
+    try {
+        if (chrome.runtime?.id) {
+            if (callback) {
+                chrome.runtime.sendMessage(message, (response) => {
+                    if (chrome.runtime.lastError) {
+                        // Context likely invalidated, ignore
+                        return;
+                    }
+                    callback(response);
+                });
+            } else {
+                chrome.runtime.sendMessage(message).catch(() => {
+                    // Context likely invalidated, ignore
+                });
+            }
+        }
+    } catch (e) {
+        // Extension context invalidated, ignore
+    }
+}
+
 // Always listen for bridge messages, regardless of when it's injected
 window.addEventListener('message', (event) => {
     if (event.data?.source === 'testpilot-bridge') {
@@ -14,16 +37,42 @@ window.addEventListener('message', (event) => {
 
 function injectBridge() {
     if (document.getElementById('testpilot-bridge')) return;
-    const script = document.createElement('script');
-    script.id = 'testpilot-bridge';
-    script.src = chrome.runtime.getURL('src/bridge/bridge.js');
-    (document.head || document.documentElement).appendChild(script);
+    try {
+        if (!chrome.runtime?.id) return;
+        const script = document.createElement('script');
+        script.id = 'testpilot-bridge';
+        script.src = chrome.runtime.getURL('src/bridge/bridge.js');
+        (document.head || document.documentElement).appendChild(script);
+    } catch (e) {
+        // Context invalidated
+    }
 }
 
 let isMonitoring = false;
+let sessionConfig: any = null;
 
 function handleBridgeEvent(type: string, data: any) {
     if (!isMonitoring) return;
+
+    // Filter by type if config is available
+    if (sessionConfig?.enabledTypes) {
+        // Map common internal types to IssueType if they differ
+        let issueType: string = type;
+        if (type === 'network_event' || type === 'network_error') {
+            const isError = type === 'network_error' || (data.status && data.status >= 400);
+            issueType = isError ? 'network_failure' : 'slow_api';
+        } else if (type === 'runtime_error') {
+            issueType = 'runtime_crash';
+        } else if (type === 'resource_failure') {
+            issueType = 'resource_failure';
+        } else if (type === 'security_risk') {
+            issueType = 'security_risk';
+        }
+
+        if (sessionConfig.enabledTypes[issueType] === false) {
+            return;
+        }
+    }
 
     let payload: any = {
         type,
@@ -59,7 +108,7 @@ function handleBridgeEvent(type: string, data: any) {
         setTimeout(() => {
             const contentLen = document.body?.innerText?.length || 0;
             if (contentLen < 50) {
-                chrome.runtime.sendMessage({
+                safeSendMessage({
                     action: 'TELEMETRY_EVENT',
                     payload: {
                         type: 'white_screen',
@@ -70,46 +119,55 @@ function handleBridgeEvent(type: string, data: any) {
                 });
             }
         }, 1000);
-    } else if (type === 'long_task') {
-        payload.type = 'long_task';
-        payload.message = `UI Thread frozen for ${Math.round(data.duration)}ms`;
-        payload.metadata = data;
+
     } else if (type === 'resource_failure') {
         payload.type = 'resource_failure';
         payload.message = `Failed to load ${data.tagName}: ${data.url}`;
         payload.metadata = data;
-    } else if (type === 'route_change') {
-        payload.type = 'route_change';
-        payload.message = `Navigation: ${data.method} to ${data.url}`;
-        payload.metadata = data;
+
+    } else if (type === 'security_risk') {
+        payload.type = 'security_risk';
+        // data from bridge: { type: 'storage_leak', key, value }
+        if (data.type === 'storage_leak') {
+            payload.message = `Sensitive key written to localStorage: "${data.key}"`;
+        } else {
+            payload.message = `Security risk detected in page context`;
+        }
+        payload.metadata = { ...data };
     }
 
-    chrome.runtime.sendMessage({ action: 'TELEMETRY_EVENT', payload });
+    safeSendMessage({ action: 'TELEMETRY_EVENT', payload });
 }
 
-function enableMonitors() {
+function enableMonitors(config?: any) {
     isMonitoring = true;
+    sessionConfig = config;
     injectBridge();
 }
 
 function disableMonitors() {
     isMonitoring = false;
+    sessionConfig = null;
 }
 
 // 1. Check initial state
-chrome.runtime.sendMessage({ action: 'GET_SESSION_STATUS' }, (response: any) => {
-    if (chrome.runtime.lastError) return;
+safeSendMessage({ action: 'GET_SESSION_STATUS' }, (response: any) => {
     if (response && response.active) {
-        enableMonitors();
+        enableMonitors(response.config);
     }
 });
 
 // 2. Listen for Command changes
-chrome.runtime.onMessage.addListener((message: any) => {
-    if (message.action === 'SESSION_STARTED') {
-        enableMonitors();
-    } else if (message.action === 'SESSION_STOPPED') {
-        disableMonitors();
-        // Session ended - check popup for report
+try {
+    if (chrome.runtime?.id) {
+        chrome.runtime.onMessage.addListener((message: any) => {
+            if (message.action === 'SESSION_STARTED') {
+                enableMonitors(message.config);
+            } else if (message.action === 'SESSION_STOPPED') {
+                disableMonitors();
+            }
+        });
     }
-});
+} catch (e) {
+    // Context invalidated
+}

@@ -5,11 +5,9 @@ export type IssueType =
     | 'network_failure'
     | 'slow_api'
     | 'retry_storm'
-    | 'long_task'
     | 'resource_failure'
     | 'cors_failure'
     | 'security_risk'
-    | 'route_change'
     | 'white_screen';
 
 export type IssueLevel = 'critical' | 'high' | 'medium' | 'low';
@@ -45,8 +43,8 @@ export interface Session {
     };
     config?: {
         slowApiThreshold: number;
-        longTaskThreshold: number;
         escalationThreshold: number;
+        enabledTypes: Record<IssueType, boolean>;
     };
 }
 

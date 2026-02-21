@@ -2,8 +2,9 @@ import { StorageService } from './storage.ts';
 import type { Session } from '../core/types.ts';
 
 export class SessionManager {
-    static async startSession(envData?: any): Promise<Session> {
+    static async startSession(payload?: { envData?: any, config?: any }): Promise<Session> {
         const sessionId = crypto.randomUUID();
+        const { envData, config } = payload || {};
         const session: Session = {
             sessionId,
             startTime: Date.now(),
@@ -14,10 +15,21 @@ export class SessionManager {
                 url: location.href,
                 platform: (navigator as any).platform
             },
-            config: {
+            config: config || {
                 slowApiThreshold: 1000,
-                longTaskThreshold: 200,
-                escalationThreshold: 10
+                escalationThreshold: 10,
+                enabledTypes: {
+                    runtime_crash: true,
+                    console_error: true,
+                    console_log: false,
+                    network_failure: true,
+                    slow_api: true,
+                    retry_storm: true,
+                    resource_failure: true,
+                    cors_failure: true,
+                    security_risk: true,
+                    white_screen: true
+                }
             }
         };
         await StorageService.saveSession(session);

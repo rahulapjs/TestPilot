@@ -1,86 +1,197 @@
 # 🧪 TestPilot
 
-**Intelligent Bug Detection & Telemetry Extension for Modern Web Apps**
+**Intelligent Bug Detection & Telemetry Chrome Extension for Modern Web Apps**
 
-TestPilot is a powerful, production-grade Chrome extension designed to catch bugs before your users do. It acts as a black-box flight recorder for your web application, capturing console errors, network failures, slow APIs, performance metrics, and security risks in real-time.
+TestPilot is a production-grade Chrome extension that acts as a silent flight recorder for your web application. It captures bugs, network failures, security risks, and performance issues in real-time — before your users report them.
 
-![TestPilot Banner](https://via.placeholder.com/800x200?text=TestPilot+Extension)
+---
 
-## ✨ Key Features
+## ✨ Features
 
-- **🚀 Real-time Telemetry**: Captures `console.error`, `console.warn`, unhandled exceptions, and promise rejections.
-- **🌐 Network Intelligence**: 
-  - Detects **Slow APIs** (>1000ms by default)
-  - Identifies **Retry Storms** (rapid repeated failures)
-  - Captures **CORS Errors** and HTTP 4xx/5xx failures
-- **⚡ Performance Monitoring**:
-  - **Long Task Detection**: Flags UI freezes (>200ms)
-  - **White Screen Detection**: Alerts on potential rendering crashes
-- **🛡️ Security Scanner**:
-  - Detects sensitive data leaks (JWTs, API keys, PII) in console/storage
-  - Monitors unsafe storage access
-- **📱 Smart Context**: Captures environment details (User Agent, Viewport, Route Changes) for actionable bug reports.
-- **🧠 Adaptive Severity**: Automatically escalates issue severity based on frequency (e.g., repeating errors become Critical).
+### 🖥️ Console Monitoring
+- Intercepts `console.error` and `console.warn` calls from deep inside the page (via a **Main World bridge script** that runs before any other JS)
+- Captures the **caller file, line, and column** from the stack trace automatically
+- Passes every console message through the **Security Scanner** before logging
 
-## 🛠️ Usage
+### 🌐 Network Intelligence
+- Wraps both **`window.fetch`** and **`XMLHttpRequest`** to intercept all outgoing requests
+- Captures **HTTP 4xx / 5xx** failures as `network_failure` issues
+- Detects **Slow APIs** — requests exceeding the configurable threshold (default: 1000ms)
+- Detects **API Retry Storms** — automatically escalates to `retry_storm` (Critical) when the same endpoint fails 3+ times within 5 seconds
+- Records **request payload**, **response status**, and **response body** (up to 2000 chars) for every failing or slow request
 
-1. **Install the Extension** (Developer Mode):
-   - Clone this repo
-   - Run `npm install` and `npm run build`
-   - Open `chrome://extensions`
-   - Enable "Developer mode"
-   - Click "Load unpacked" and select the `dist` folder
+### ⚡ Runtime Crash Detection
+- Listens for `window.onerror` to catch **unhandled JavaScript exceptions** with full file/line/column/stack metadata
+- Listens for `window.onunhandledrejection` to catch **unhandled Promise rejections**
 
-2. **Start a Session**:
-   - Click the extension icon
-   - Hit **Start Session**
-   - Interact with your web application
-   - TestPilot records all hidden issues in the background
+### 📦 Broken Resource Detection
+- Listens on the capture phase for failed loads of `<img>`, `<script>`, and `<link>` tags
+- Records the tag type, source URL, and outer HTML of the broken element
 
-3. **Analyze & Export**:
-   - Open the popup to see a categorized list of issues
-   - Use **Filters** to focus on Critical/High severity bugs
-   - Click **Export JSON** or **Export Markdown** to generate a bug report
+### 🛡️ Security Scanner
+Automatically scans console output and `localStorage` writes for sensitive data leaks:
+| Pattern | Detected As |
+|---|---|
+| JWT tokens (`eyJ...`) | `JWT Token` |
+| Email addresses | `Email Address` |
+| Phone numbers | `Phone Number` |
+| API keys / secrets | `API Key/Secret` |
+| Sensitive keys written to `localStorage` (`token`, `password`, `api_key`, `jwt`, `auth`) | `storage_leak` |
+
+### 🧠 Severity Engine
+All issues are automatically classified into four severity levels:
+
+| Level | Issue Types |
+|---|---|
+| 🔴 **Critical** | Runtime crashes, white screens, retry storms, CORS failures, security risks, HTTP 5xx |
+| 🟠 **High** | Console errors, resource failures, HTTP 4xx network failures |
+| 🟡 **Medium** | Slow APIs, console warnings |
+| ⚪ **Low** | Console logs |
+
+**Adaptive Escalation:** If the same issue repeats beyond a configurable threshold (default: 10×), its severity automatically upgrades one level (e.g. Medium → High → Critical).
+
+### 🗂️ Issue Deduplication
+Issues are fingerprinted by type + message hash. Repeated occurrences of the same bug increment an `occurrences` counter and update `lastSeen` instead of creating duplicates — keeping reports clean and actionable.
+
+### 📊 Session Management
+- Every recording is isolated as a **Session** with a unique UUID
+- Sessions store full metadata: `userAgent`, `viewport`, `URL`, `platform`
+- Sessions persist across page navigations via `chrome.storage.local`
+- Session history is browsable from the popup
+
+### 📤 Report Export
+Completed sessions can be exported in two formats:
+
+- **JSON** — Raw structured data, ideal for programmatic processing or filing in issue trackers
+- **Markdown** — Human-readable report with:
+  - Executive summary with issue counts per severity
+  - ⚠️ Critical issue call-out banner
+  - **Release Blockers** section (Critical issues only)
+  - **High Priority** section
+  - **Medium Priority** section
+  - Full **Timeline** of all issues sorted by time of occurrence
+
+### 🎨 UI
+- Modern, white-and-blue minimal popup (400px wide)
+- Live issue list with **severity filter buttons** (All / Critical / High / Medium / Low)
+- Issue cards showing type, message, occurrence count, and URL
+- Expandable **request/response body detail** for network issues
+- Session history view with per-session issue count pills
+- Extension badge shows the live total issue count during recording
+
+---
 
 ## ⚙️ Configuration
 
-TestPilot includes a **Settings Panel** (click the ⚙ icon) to customize detection thresholds:
+Click the **⚙** icon in the popup to open the Settings panel:
 
 | Setting | Default | Description |
-|Observed Metric| Threshold | Impact |
 |---|---|---|
-| **Slow API** | 1000ms | Requests taking longer than this are flagged as "Medium" severity |
-| **Long Task** | 200ms | UI freezes longer than this are flagged as "Medium" severity |
-| **Escalation** | 10x | Issues repeating this many times automatically upgrade severity |
+| **Slow API Threshold** | `1000` ms | Requests taking longer than this are flagged as Slow API (Medium) |
+| **Escalation Threshold** | `10` × | Issues repeating this many times auto-escalate one severity level |
+| **Monitor Types** | All enabled | Toggle individual monitors on/off (runtime crash, console error, network failure, slow API, retry storm, resource failure, CORS, security risk, white screen) |
 
-## 🏗️ Architecture
+---
 
-- **Core**: TypeScript, Vite, Preact
-- **State Management**: Chronicled session storage in `chrome.storage.local`
-- **Bridge**: Injected script (`bridge.ts`) for deep network/console interception
-- **Analysis**: Independent `SeverityEngine` for classifying and prioritizing issues
-
-## 📦 Build & Develop
+## 🛠️ Installation (Developer Mode)
 
 ```bash
-# Install dependencies
+# 1. Clone the repo
+git clone https://github.com/your-username/TestPilot.git
+cd TestPilot
+
+# 2. Install dependencies
 npm install
 
-# Run development build (watch mode)
+# 3. Build for production
+npm run build
+```
+
+Then in Chrome:
+1. Go to `chrome://extensions`
+2. Enable **Developer mode** (top-right toggle)
+3. Click **Load unpacked**
+4. Select the `dist/` folder
+
+---
+
+## 💻 Development
+
+```bash
+# Type-check only (no emit)
+npm run type-check
+
+# Start Vite dev server (for popup UI iteration)
 npm run dev
 
 # Build for production
 npm run build
 ```
 
+---
+
+## 🏗️ Architecture
+
+```
+src/
+├── background/          # Service Worker (persistent background process)
+│   ├── main.ts          # Message router — receives TELEMETRY_EVENT messages
+│   ├── eventProcessor.ts # Deduplication, retry-storm detection, badge updates
+│   ├── sessionManager.ts # Start/end sessions, persist to chrome.storage.local
+│   ├── severityEngine.ts # Classifies and escalates issue severity levels
+│   └── storage.ts       # Typed wrapper around chrome.storage.local
+│
+├── content/             # Content Script (runs on every page)
+│   ├── main.ts          # Orchestrator — injects bridge, enables all monitors
+│   ├── bridge.ts        # Injected into Main World to intercept fetch/XHR/console
+│   ├── consoleMonitor.ts # console.error / console.warn override + security scan
+│   ├── networkMonitor.ts # fetch + XHR override for slow/failed requests
+│   ├── runtimeMonitor.ts # window.onerror + unhandledrejection listeners
+│   └── securityScanner.ts# Regex-based PII / secret detection engine
+│
+├── core/                # Shared types and utilities
+│   ├── types.ts         # IssueType, IssueLevel, Issue, Session, StorageSchema
+│   ├── issueFactory.ts  # Constructs Issue objects with fingerprinting
+│   └── fingerprint.ts   # Deterministic hash for issue deduplication
+│
+├── popup/               # Preact UI
+│   ├── index.html
+│   ├── popup.tsx        # Full popup app — all views and state logic
+│   └── popup.css        # Design system — white/blue theme, scrollbars, animations
+│
+└── reporting/
+    └── reportGenerator.ts # Generates Markdown and JSON session reports
+```
+
+**Key design decisions:**
+- The **bridge script** (`bridge.ts`) is injected into the **Main World** (not isolated content script context) so it can intercept the page's own `fetch`, `XMLHttpRequest`, and `console` before any frameworks or libraries wrap them.
+- The **background service worker** is the single source of truth for session state, keeping the popup and content scripts stateless and easily restartable.
+- **Fingerprinting** is done at issue creation time, making deduplication a simple array lookup.
+
+---
+
+## 📦 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| UI | [Preact](https://preactjs.com/) + TypeScript |
+| Build | [Vite](https://vitejs.dev/) v7 |
+| Styles | Vanilla CSS |
+| Storage | `chrome.storage.local` |
+| Types | `@types/chrome` |
+
+---
+
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+---
+
 ## 📄 License
 
-MIT License - free to use for personal and commercial projects.
+MIT License — free to use for personal and commercial projects.
