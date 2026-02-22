@@ -1,4 +1,4 @@
-name: Build & Lint Extension
+name: Build & Release Extension
 
 on:
   push:
@@ -9,28 +9,74 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to create releases and upload assets
 
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Use Node.js 20
-      uses: actions/setup-node@v4
-      with:
-        node-version: 20
-        cache: 'npm'
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Type Check
-      run: npm run type-check
+      - name: Type check
+        run: npm run type-check
 
-    - name: Build Extension
-      run: npm run build
+      - name: Build extension
+        run: npm run build
 
-    - name: Upload Build Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: testpilot-extension
-        path: dist/
-        retention-days: 5
+      # ── Build info ──────────────────────────────────────────────────────────
+      - name: Generate build info
+        id: build_info
+        run: |
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          DATE=$(date -u +"%Y-%m-%d")
+          echo "sha_short=$SHA_SHORT" >> $GITHUB_OUTPUT
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+          echo "zip_name=testpilot-${SHA_SHORT}.zip" >> $GITHUB_OUTPUT
+
+      # ── Zip the dist folder ─────────────────────────────────────────────────
+      - name: Zip dist folder
+        run: |
+          cd dist
+          zip -r "../${{ steps.build_info.outputs.zip_name }}" .
+          cd ..
+          echo "Created ${{ steps.build_info.outputs.zip_name }}"
+          ls -lh "${{ steps.build_info.outputs.zip_name }}"
+
+      # ── Upload zip as a workflow artifact (available on every PR + push) ────
+      - name: Upload extension zip (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: testpilot-${{ steps.build_info.outputs.sha_short }}
+          path: ${{ steps.build_info.outputs.zip_name }}
+          retention-days: 14
+
+      # ── On main: create/update a "latest" GitHub Release with the zip ───────
+      - name: Create or update latest Release
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "TestPilot – Latest Build (${{ steps.build_info.outputs.date }})"
+          body: |
+            ## ⬇️ Install TestPilot
+
+            1. Download `testpilot-${{ steps.build_info.outputs.sha_short }}.zip` below
+            2. Unzip it anywhere on your machine
+            3. Open `chrome://extensions` in Chrome
+            4. Enable **Developer mode** (top-right toggle)
+            5. Click **Load unpacked** and select the unzipped folder
+
+            ---
+            **Commit:** `${{ steps.build_info.outputs.sha_short }}`  
+            **Built:** ${{ steps.build_info.outputs.date }}
+          files: ${{ steps.build_info.outputs.zip_name }}
+          prerelease: false
+          make_latest: true
