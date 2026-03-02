@@ -132,35 +132,84 @@ npm run build
 
 ## 🏗️ Architecture
 
+TestPilot uses a multi-layered architecture to ensure it can capture telemetry that standard content scripts cannot reach.
+
+### 🧩 System Components
+
+```mermaid
+graph TD
+    subgraph "Web Page (Main World)"
+        Bridge[Bridge Script]
+        App[Web Application]
+    end
+
+    subgraph "Chrome Extension"
+        CS[Content Script]
+        BS[Background Service Worker]
+        Pop[Popup UI]
+        Storage[(chrome.storage.local)]
+    end
+
+    App -- "JS Errors / API Calls" --> Bridge
+    Bridge -- "window.postMessage" --> CS
+    CS -- "chrome.runtime.sendMessage" --> BS
+    BS -- "Process & Deduplicate" --> BS
+    BS -- "Persist" --> Storage
+    Pop -- "Read & Display" --> Storage
+    BS -- "Update Badge" --> Pop
 ```
-src/
-├── background/          # Service Worker (persistent background process)
-│   ├── main.ts          # Message router — receives TELEMETRY_EVENT messages
-│   ├── eventProcessor.ts # Deduplication, retry-storm detection, badge updates
-│   ├── sessionManager.ts # Start/end sessions, persist to chrome.storage.local
-│   ├── severityEngine.ts # Classifies and escalates issue severity levels
-│   └── storage.ts       # Typed wrapper around chrome.storage.local
-│
-├── content/             # Content Script (runs on every page)
-│   ├── main.ts          # Orchestrator — injects bridge, enables all monitors
-│   ├── bridge.ts        # Injected into Main World to intercept fetch/XHR/console
-│   ├── consoleMonitor.ts # console.error / console.warn override + security scan
-│   ├── networkMonitor.ts # fetch + XHR override for slow/failed requests
-│   ├── runtimeMonitor.ts # window.onerror + unhandledrejection listeners
-│   └── securityScanner.ts# Regex-based PII / secret detection engine
-│
-├── core/                # Shared types and utilities
-│   ├── types.ts         # IssueType, IssueLevel, Issue, Session, StorageSchema
-│   ├── issueFactory.ts  # Constructs Issue objects with fingerprinting
-│   └── fingerprint.ts   # Deterministic hash for issue deduplication
-│
-├── popup/               # Preact UI
-│   ├── index.html
-│   ├── popup.tsx        # Full popup app — all views and state logic
-│   └── popup.css        # Design system — white/blue theme, scrollbars, animations
-│
-└── reporting/
-    └── reportGenerator.ts # Generates Markdown and JSON session reports
+
+### 🔄 Event Life Cycle
+
+The following sequence diagram tracks a single `console.error` from the application through to the extension storage.
+
+```mermaid
+sequenceDiagram
+    participant App as Web Application
+    participant Bridge as Bridge Script (Main World)
+    participant CS as Content Script
+    participant BS as Background Worker
+    participant DB as chrome.storage
+
+    App->>Bridge: console.error("API Failed")
+    Bridge->>Bridge: Capture Stack Trace & Context
+    Bridge->>CS: window.postMessage({source: 'testpilot-bridge', ...})
+    CS->>CS: Filter & Enhance Payload
+    CS->>BS: chrome.runtime.sendMessage({action: 'TELEMETRY_EVENT', ...})
+    BS->>BS: eventProcessor.process(event)
+    BS->>BS: severityEngine.classify(event)
+    BS->>DB: sessionManager.addIssue(issue)
+    BS->>BS: updateBadgeCount()
+```
+
+### 🧠 Severity & Escalation Logic
+
+Issues are automatically classified and can be promoted to higher severities if they become "noisy" (repeat frequently).
+
+```mermaid
+graph TD
+    Start([New Issue]) --> T{Is it a Crash?}
+    T -- Yes --> Critical[🔴 Critical]
+    T -- No --> N{Is it Network?}
+    
+    N -- Yes --> NS{HTTP Status?}
+    NS -- 5xx --> Critical
+    NS -- 4xx --> High[🟠 High]
+    NS -- Slow --> Medium[🟡 Medium]
+    
+    N -- No --> C{Is it Console?}
+    C -- Error --> High
+    C -- Warn --> Medium
+    C -- Log --> Low[⚪ Low]
+
+    Critical --> Esc{Repeat > 10x?}
+    High --> Esc
+    Medium --> Esc
+    Low --> Esc
+    
+    Esc -- Yes --> Up[Escalate Severity]
+    Esc -- No --> Fin([Final Severity])
+    Up --> Fin
 ```
 
 **Key design decisions:**
